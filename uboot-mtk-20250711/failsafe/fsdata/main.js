@@ -78,7 +78,9 @@ function ensureSidebar() {
         setLang(r.value)
     }, c.appendChild(r), h.appendChild(c), l = document.createElement("div"), l.className = "control-row", g = document.createElement("div"), g.setAttribute("data-i18n", "control.theme"), g.textContent = t("control.theme"), l.appendChild(g), n = document.createElement("select"), n.id = "theme_select", a = document.createElement("option"), a.value = "auto", a.setAttribute("data-i18n", "theme.auto"), a.textContent = t("theme.auto"), v = document.createElement("option"), v.value = "light", v.setAttribute("data-i18n", "theme.light"), v.textContent = t("theme.light"), y = document.createElement("option"), y.value = "dark", y.setAttribute("data-i18n", "theme.dark"), y.textContent = t("theme.dark"), n.appendChild(a), n.appendChild(v), n.appendChild(y), n.value = APP_STATE.theme, n.onchange = function () {
         setTheme(n.value)
-    }, l.appendChild(n), h.appendChild(l), i.appendChild(h), p = document.createElement("div"), p.className = "nav", e = document.createElement("div"), e.className = "nav-section", w = document.createElement("div"), w.className = "nav-section-title", w.setAttribute("data-i18n", "nav.basic"), w.textContent = t("nav.basic"), e.appendChild(w), e.appendChild(o("/", "nav.firmware", "firmware")), e.appendChild(o("/uboot.html", "nav.uboot", "uboot")), p.appendChild(e), u = document.createElement("div"), u.className = "nav-section", b = document.createElement("div"), b.className = "nav-section-title", b.setAttribute("data-i18n", "nav.advanced"), b.textContent = t("nav.advanced"), u.appendChild(b), u.appendChild(o("/bl2.html", "nav.bl2", "bl2")), u.appendChild(o("/gpt.html", "nav.gpt", "gpt")), u.appendChild(o("/factory.html", "nav.factory", "factory")), u.appendChild(o("/initramfs.html", "nav.initramfs", "initramfs")), p.appendChild(u), i.appendChild(p), applyI18n(i))
+    }, l.appendChild(n), h.appendChild(l), i.appendChild(h), p = document.createElement("div"), p.className = "nav", e = document.createElement("div"), e.className = "nav-section", w = document.createElement("div"), w.className = "nav-section-title", w.setAttribute("data-i18n", "nav.basic"), w.textContent = t("nav.basic"), e.appendChild(w), e.appendChild(o("/", "nav.firmware", "firmware")), e.appendChild(o("/uboot.html", "nav.uboot", "uboot")), p.appendChild(e), u = document.createElement("div"), u.className = "nav-section", b = document.createElement("div"), b.className = "nav-section-title", b.setAttribute("data-i18n", "nav.advanced"), b.textContent = t("nav.advanced"), u.appendChild(b), u.appendChild(o("/bl2.html", "nav.bl2", "bl2")), u.appendChild(o("/gpt.html", "nav.gpt", "gpt")), u.appendChild(o("/factory.html", "nav.factory", "factory")), u.appendChild(o("/initramfs.html", "nav.initramfs", "initramfs")), p.appendChild(u), u = document.createElement("div"), u.className = "nav-section", b = document.createElement("div"), b.className = "nav-section-title", b.setAttribute("data-i18n", "nav.system"), b.textContent = t("nav.system"), u.appendChild(b), u.appendChild(o("/backup.html", "nav.backup", "backup")), r = o("/reboot", "nav.reboot", "reboot"), r.onclick = function () {
+        return confirm(t("reboot.confirm"))
+    }, u.appendChild(r), p.appendChild(u), i.appendChild(p), applyI18n(i))
 }
 
 function ajax(n) {
@@ -111,7 +113,8 @@ function appInit(n) {
         document.body.classList.add("ready")
     }, 0);
     getversion();
-    (n === "index" || n === "initramfs") && getmtdlayoutlist()
+    (n === "index" || n === "initramfs") && getmtdlayoutlist();
+    n === "backup" && backupInit()
 }
 
 function startup() {
@@ -162,6 +165,154 @@ function upload(n) {
         }
     }))
 }
+
+function bytesToHuman(n) {
+    var t;
+    return n === null || n === undefined ? "" : (t = Number(n), !isFinite(t) || t < 0) ? "" : t >= 1024 * 1024 * 1024 ? (t / (1024 * 1024 * 1024)).toFixed(2) + " GiB" : t >= 1024 * 1024 ? (t / (1024 * 1024)).toFixed(2) + " MiB" : t >= 1024 ? (t / 1024).toFixed(2) + " KiB" : String(Math.floor(t)) + " B"
+}
+
+function parseFilenameFromDisposition(n) {
+    var t, i;
+    return n ? (t = /filename\s*=\s*"([^"]+)"/i.exec(n), t && t[1]) ? t[1] : (i = /filename\s*=\s*([^;\s]+)/i.exec(n), i && i[1] ? i[1].replace(/^"|"$/g, "") : "") : ""
+}
+
+function parseUserLen(n) {
+    var t, i, r;
+    if (!n) return null;
+    if (n = String(n).trim(), n === "") return null;
+    t = /^\s*(0x[0-9a-fA-F]+|\d+)\s*([a-zA-Z]*)\s*$/.exec(n);
+    if (!t) return null;
+    i = t[1].toLowerCase().indexOf("0x") === 0 ? parseInt(t[1], 16) : parseInt(t[1], 10);
+    if (!isFinite(i) || i < 0) return null;
+    r = (t[2] || "").toLowerCase();
+    return r === "" ? i : r === "k" || r === "kb" || r === "kib" ? i * 1024 : null
+}
+
+function setBackupStatus(n) {
+    var t = document.getElementById("backup_status");
+    t && (t.style.display = n ? "block" : "none", t.textContent = n || "")
+}
+
+function setBackupProgress(n) {
+    var t = document.getElementById("bar"), i;
+    t && (i = Math.max(0, Math.min(100, parseInt(n || 0))), t.style.display = "block", t.style.setProperty("--percent", i))
+}
+
+function backupUpdateRangeHint() {
+    var u = document.getElementById("backup_range_hint"), n, i, r;
+    u && (n = parseUserLen(document.getElementById("backup_start").value), i = parseUserLen(document.getElementById("backup_end").value), n === null || i === null ? u.textContent = t("backup.range.hint") : (r = i >= n ? i - n : 0, u.textContent = "Start=" + bytesToHuman(n) + ", End=" + bytesToHuman(i) + ", Size=" + bytesToHuman(r)))
+}
+
+function backupInit() {
+    var u = document.getElementById("backup_mode"), r = document.getElementById("backup_range"), n = document.getElementById("backup_target"), i, f, e;
+    u && r && n && (i = function () {
+        u.value === "range" ? (r.style.display = "block", backupUpdateRangeHint()) : (r.style.display = "none")
+    }, u.onchange = i, f = document.getElementById("backup_start"), e = document.getElementById("backup_end"), f && (f.oninput = backupUpdateRangeHint), e && (e.oninput = backupUpdateRangeHint), i(), setBackupStatus(""), ajax({
+        url: "/backupinfo",
+        done: function (u) {
+            var r, e, o, s, f, i;
+            try {
+                r = JSON.parse(u)
+            } catch (h) {
+                setBackupStatus("backupinfo parse failed");
+                return
+            }
+            e = document.getElementById("backup_info");
+            e && (o = [], r.mmc && r.mmc.present ? o.push("MMC: " + (r.mmc.vendor || "") + " " + (r.mmc.product || "")) : o.push("MMC: " + t("backup.storage.not_present")), r.mtd && r.mtd.present ? o.push("MTD: " + (r.mtd.model || "")) : o.push("MTD: " + t("backup.storage.not_present")), e.textContent = o.join(" | "));
+            n.options.length = 0;
+            s = document.createElement("option");
+            s.value = "";
+            s.textContent = t("backup.target.placeholder");
+            n.appendChild(s);
+            r.mmc && r.mmc.present && (f = document.createElement("option"), f.value = "mmc:raw", f.textContent = "[MMC] raw", n.appendChild(f), r.mmc.parts && r.mmc.parts.length && r.mmc.parts.forEach(function (t) {
+                var i;
+                t && t.name && (i = document.createElement("option"), i.value = "mmc:" + t.name, i.textContent = "[MMC] " + t.name + (t.size ? " (" + bytesToHuman(t.size) + ")" : ""), n.appendChild(i))
+            }));
+            r.mtd && r.mtd.present && r.mtd.parts && r.mtd.parts.length && r.mtd.parts.forEach(function (t) {
+                var i;
+                t && t.name && (i = document.createElement("option"), i.value = "mtd:" + t.name, i.textContent = "[MTD] " + t.name + (t.size ? " (" + bytesToHuman(t.size) + ")" : ""), n.appendChild(i))
+            });
+            n.options.length > 1 && (n.selectedIndex = 1)
+        }
+    }))
+}
+
+async function startBackup() {
+    var u = document.getElementById("backup_mode"), f = document.getElementById("backup_target"), i, r, e, o, s, h, c, l, a, v, y, p, w, b, k;
+    if (!u || !f) return;
+    if (i = u.value, r = f.value, !r) {
+        setBackupStatus(t("backup.error.no_target"));
+        return
+    }
+    e = new FormData;
+    e.append("mode", i);
+    e.append("storage", "auto");
+    e.append("target", r);
+    if (i === "range") {
+        o = document.getElementById("backup_start");
+        s = document.getElementById("backup_end");
+        if (!o || !s || !o.value || !s.value) {
+            setBackupStatus(t("backup.error.bad_range"));
+            return
+        }
+        e.append("start", o.value);
+        e.append("end", s.value)
+    }
+    setBackupProgress(0);
+    setBackupStatus(t("backup.status.starting"));
+    try {
+        h = await fetch("/backup", { method: "POST", body: e });
+        if (!h.ok) {
+            setBackupStatus(t("backup.error.http") + " " + h.status);
+            return
+        }
+        c = h.headers.get("Content-Length");
+        l = c ? parseInt(c, 10) : 0;
+        a = parseFilenameFromDisposition(h.headers.get("Content-Disposition"));
+        a || (a = "backup.bin");
+        v = 0;
+        if (window.showSaveFilePicker) {
+            y = await window.showSaveFilePicker({ suggestedName: a, types: [{ description: "Binary", accept: { "application/octet-stream": [".bin"] } }] });
+            p = await y.createWritable();
+            w = h.body.getReader();
+            while (true) {
+                b = await w.read();
+                if (b.done) break;
+                await p.write(b.value);
+                v += b.value.length;
+                l ? setBackupProgress(v / l * 100) : setBackupProgress(0);
+                setBackupStatus(t("backup.status.downloading") + " " + bytesToHuman(v) + (l ? " / " + bytesToHuman(l) : ""))
+            }
+            await p.close();
+            setBackupProgress(100);
+            setBackupStatus(t("backup.status.done") + " " + a)
+        } else {
+            k = [];
+            w = h.body.getReader();
+            while (true) {
+                b = await w.read();
+                if (b.done) break;
+                k.push(b.value);
+                v += b.value.length;
+                l ? setBackupProgress(v / l * 100) : setBackupProgress(0);
+                setBackupStatus(t("backup.status.downloading") + " " + bytesToHuman(v) + (l ? " / " + bytesToHuman(l) : ""))
+            }
+            setBackupProgress(100);
+            setBackupStatus(t("backup.status.preparing"));
+            p = new Blob(k, { type: "application/octet-stream" });
+            y = document.createElement("a");
+            y.href = URL.createObjectURL(p);
+            y.download = a;
+            document.body.appendChild(y);
+            y.click();
+            document.body.removeChild(y);
+            setBackupStatus(t("backup.status.done") + " " + a)
+        }
+    } catch (d) {
+        setBackupStatus(t("backup.error.exception") + " " + (d && d.message ? d.message : String(d)))
+    }
+}
+
 var I18N = {
     en: {
         "app.name": "Recovery Mode WEBUI",
@@ -173,6 +324,9 @@ var I18N = {
         "nav.gpt": "GPT update",
         "nav.factory": "Factory update",
         "nav.initramfs": "Load initramfs",
+        "nav.system": "System",
+        "nav.backup": "Backup",
+        "nav.reboot": "Reboot device",
         "control.language": "🌐Language",
         "control.theme": "🌓Theme",
         "theme.auto": "Auto",
@@ -220,6 +374,30 @@ var I18N = {
         "factory.warn.1": "do not power off the device during update",
         "factory.warn.2": "if everything goes well, the device will restart",
         "factory.warn.3": "updating factory partition may damage your device or break calibration data",
+        "reboot.confirm": "Reboot device now?",
+        "backup.title": "BACKUP",
+        "backup.hint": "Download a backup from device storage as a <strong>binary file<\/strong>.<br>The backup data will be streamed to your browser and saved on your computer.",
+        "backup.label.mode": "Mode:",
+        "backup.label.target": "Target:",
+        "backup.label.start": "Start:",
+        "backup.label.end": "End (exclusive):",
+        "backup.mode.part": "Partition backup",
+        "backup.mode.range": "Custom range",
+        "backup.action.download": "Download",
+        "backup.warn.1": "do not power off the device during backup",
+        "backup.warn.2": "custom range reads raw bytes; be careful with offsets",
+        "backup.warn.3": "large backups may take a long time depending on storage speed",
+        "backup.storage.not_present": "not present",
+        "backup.target.placeholder": "-- select --",
+        "backup.range.hint": "Tip: input supports decimal, 0xHEX, and KiB suffix (e.g. 64KiB).",
+        "backup.status.starting": "Starting...",
+        "backup.status.downloading": "Downloading:",
+        "backup.status.preparing": "Preparing file...",
+        "backup.status.done": "Done:",
+        "backup.error.no_target": "Please select a target",
+        "backup.error.bad_range": "Please input valid start/end",
+        "backup.error.http": "HTTP error:",
+        "backup.error.exception": "Failed:",
         "initramfs.title": "LOAD INITRAMFS",
         "initramfs.hint": "You are going to load <strong>initramfs<\/strong> on the device.<br>Please, choose file from your local hard drive and click <strong>Upload<\/strong> button.",
         "initramfs.boot_hint": 'If all information above is correct, click "Boot".',
@@ -249,6 +427,9 @@ var I18N = {
         "nav.gpt": "GPT 分区表更新",
         "nav.factory": "Factory 分区更新",
         "nav.initramfs": "启动 Initramfs",
+        "nav.system": "系统",
+        "nav.backup": "备份",
+        "nav.reboot": "重启设备",
         "control.language": "🌐语言",
         "control.theme": "🌓主题",
         "theme.auto": "自动",
@@ -296,6 +477,30 @@ var I18N = {
         "factory.warn.1": "刷写过程中请勿断电",
         "factory.warn.2": "如果一切顺利，设备会自动重启",
         "factory.warn.3": "更新 factory 分区风险极高，可能破坏校准数据并导致设备异常！",
+        "reboot.confirm": "确认立即重启设备？",
+        "backup.title": "备份",
+        "backup.hint": "从设备存储中导出备份并保存为<strong>二进制文件<\/strong>。<br>备份数据将以流式方式传输到浏览器，并保存在你的电脑上。",
+        "backup.label.mode": "模式：",
+        "backup.label.target": "目标：",
+        "backup.label.start": "起始：",
+        "backup.label.end": "结束（不包含）：",
+        "backup.mode.part": "分区备份",
+        "backup.mode.range": "自定义范围",
+        "backup.action.download": "下载",
+        "backup.warn.1": "备份过程中请勿断电",
+        "backup.warn.2": "自定义范围读取原始字节，请谨慎设置偏移",
+        "backup.warn.3": "大容量备份可能耗时较长，取决于存储速度",
+        "backup.storage.not_present": "未检测到",
+        "backup.target.placeholder": "-- 请选择 --",
+        "backup.range.hint": "提示：支持十进制、0x 十六进制，以及 KiB 后缀（例如 64KiB）。",
+        "backup.status.starting": "开始中…",
+        "backup.status.downloading": "下载中：",
+        "backup.status.preparing": "正在生成文件…",
+        "backup.status.done": "完成：",
+        "backup.error.no_target": "请选择一个目标",
+        "backup.error.bad_range": "请输入有效的起始/结束",
+        "backup.error.http": "HTTP 错误：",
+        "backup.error.exception": "失败：",
         "initramfs.title": "启动 Initramfs",
         "initramfs.hint": "你将要在设备上加载 <strong>initramfs<\/strong>。<br>请选择本地文件并点击 <strong>上传<\/strong> 按钮。",
         "initramfs.boot_hint": "如果以上信息确认无误，请点击“启动”。",

@@ -17,6 +17,10 @@ obj-y += booting.o
 FILE_booting.o := booting.html
 FSPATH_booting.o := booting.html
 
+obj-y += backup.o
+FILE_backup.o := backup.html
+FSPATH_backup.o := backup.html
+
 obj-y += factory.o
 FILE_factory.o := factory.html
 FSPATH_factory.o := factory.html
