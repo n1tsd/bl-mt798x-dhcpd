@@ -20,6 +20,8 @@ Support Actions to build automatically, generate normal/overclocking BL2.
 
 ![Version-2025](document/pictures/uboot-2025.png)
 
+U-Boot-2025 support backup/sysinfo/reboot/factory(rf)-update function.
+
 ## Prepare
 
 ```bash
