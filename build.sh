@@ -59,6 +59,12 @@ else
 	fi
 fi
 
+if [ "$multilayout" = "1" ] && [ ! -f "$UBOOT_DIR/configs/$UBOOT_CFG" ]; then
+	echo "Warning: $UBOOT_DIR/configs/$UBOOT_CFG not found, fallback to single-layout."
+	multilayout=0
+	UBOOT_CFG="${SOC}_${BOARD}_defconfig"
+fi
+
 for file in "$ATF_DIR/configs/$ATF_CFG" "$UBOOT_DIR/configs/$UBOOT_CFG"; do
 	if [ ! -f "$file" ]; then
 		echo "$file not found!"
