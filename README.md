@@ -74,11 +74,13 @@ BOARD=ruijie_rg-x60-new VERSION=SP1 MULTI_LAYOUT=1 SIMG=1 ./build.sh
 | SP1 | 20241017-bacca82a8 | 20250711 |
 | SP2 | 20260123 | 20250711 |
 
-> SP1: For some mt7986 devices, still use the kernel 5.4 firmware, may cause some issues on version 2025, like hwrng worong, in this case, you can try SP1.
+> SP1: For some devices, still use the kernel 5.4 firmware, may cause some issues on version 2025, like hwrng wrong, in this case, you can try SP1.
 >
-> SP2: With some modifications for better compatibility with new platforms, like mt7987.
+> SP2: With some modifications for better compatibility with new platforms, like mt7987, or newest kernel.
 
 - VARIANT (default: default. Optional, for different firmware variants)
+
+> Normally, `VARIANT` is prepared for MTD devices.
 
 | Variant | Description | Adapted Firmware |
 | --- | --- | --- |
@@ -289,6 +291,20 @@ e.g.
 - Scan gpio-keys:
   `setenv glbtn_key wps`
   > wps, reset, mesh...
+
+> Then you need saveenv and reboot to apply.
+
+### Change MTD partition layout manually
+
+Only for multi-layout devices
+
+Set mtdparts environment variable to the partition layout you want to use, and reboot to apply.
+
+```bash
+setenv mtd_layout_label <label>
+```
+
+> Then you need saveenv and reboot to apply.
 
 ### Disable auto-reboot after upgrade
 
